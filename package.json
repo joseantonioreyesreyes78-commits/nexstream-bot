@@ -1,7 +1,7 @@
 {
   "name": "nexstream-bot",
   "version": "1.0.0",
-  "description": "Bot para códigos Nexstream",
+  "description": "Bot de WhatsApp para Nexstream Market",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -9,6 +9,7 @@
   "dependencies": {
     "whatsapp-web.js": "^1.23.0",
     "qrcode-terminal": "^0.12.0",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "express": "^4.18.2"
   }
 }
