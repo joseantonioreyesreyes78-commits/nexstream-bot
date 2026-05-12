@@ -1,5 +1,12 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const axios = require('axios');
+const express = require('express'); // Añadimos esto
+const app = express();
+const port = process.env.PORT || 3000;
+
+// Esto engaña a Render para que crea que el bot es una página web
+app.get('/', (req, res) => res.send('Nexstream Bot está vivo 🚀'));
+app.listen(port, () => console.log(`Servidor de salud activo en puerto ${port}`));
 
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -10,7 +17,6 @@ const client = new Client({
             '--disable-setups-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
             '--single-process',
@@ -19,19 +25,16 @@ const client = new Client({
     }
 });
 
-// --- SISTEMA DE VINCULACIÓN POR CÓDIGO ---
 client.on('qr', async (qr) => {
-    // IMPORTANTE: Pon tu número aquí abajo (Ejemplo: '593987654321')
-    // Debe ir entre comillas, sin el +, sin espacios y con el código de país.
-    const miNumero = '593969720614'; 
-
+    // REEMPLAZA CON TU NÚMERO (Ej: '5939XXXXXXXX')
+    const miNumero = '5939XXXXXXXX'; 
     try {
         const pairingCode = await client.requestPairingCode(miNumero);
         console.log('-----------------------------------------');
-        console.log('TU CÓDIGO DE VINCULACIÓN ES: ' + pairingCode);
+        console.log('NUEVO CÓDIGO DE VINCULACIÓN: ' + pairingCode);
         console.log('-----------------------------------------');
     } catch (err) {
-        console.log('Error al solicitar código de vinculación:', err);
+        console.log('Error al pedir código:', err);
     }
 });
 
@@ -39,22 +42,19 @@ client.on('ready', () => {
     console.log('¡Bot de Nexstream conectado y listo!');
 });
 
-// --- LÓGICA DE MENSAJES DE NEXSTREAM MARKET ---
 client.on('message', async msg => {
     if (msg.body.includes('@nexstream.com')) {
         const correo = msg.body.trim();
         msg.reply('🔍 Buscando tu código en el servidor... espera un momento.');
-
         try {
             const response = await axios.get(`https://bot.nexstream.com/lector.php?correo=${correo}`);
-            
             if (response.data.status === 'success') {
                 msg.reply(`✅ *INFORMACIÓN ENCONTRADA*\n\n${response.data.mensaje_completo}`);
             } else {
-                msg.reply('❌ No encontré mensajes recientes para esta cuenta. Asegúrate de haber solicitado el código hace menos de 5 minutos.');
+                msg.reply('❌ No encontré mensajes recientes.');
             }
         } catch (error) {
-            msg.reply('⚠️ Error de conexión con el servidor de correos.');
+            msg.reply('⚠️ Error de conexión.');
         }
     }
 });
