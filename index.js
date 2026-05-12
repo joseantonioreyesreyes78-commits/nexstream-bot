@@ -1,75 +1,58 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const axios = require('axios');
-const express = require('express');
+const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
+const pino = require("pino");
+const axios = require("axios");
+const express = require("express");
 const app = express();
 const port = process.env.PORT || 3000;
 
-// 1. ARRANCAR EL SERVIDOR DE INMEDIATO
-// Esto le dice a Render que el bot está activo desde el segundo 1
-app.get('/', (req, res) => res.send('Nexstream Bot está vivo 🚀'));
-app.listen(port, '0.0.0.0', () => {
-    console.log(`Servidor de salud activo en el puerto ${port}`);
-});
+// Servidor para que Render no lo apague
+app.get("/", (req, res) => res.send("Bot Nexstrean Activo 🚀"));
+app.listen(port, () => console.log(`Servidor en puerto ${port}`));
 
-// 2. CONFIGURACIÓN DEL BOT (Optimizado para 512MB de RAM)
-const client = new Client({
-    authStrategy: new LocalAuth(),
-    puppeteer: {
-        handleSIGINT: false,
-        executablePath: '/usr/bin/google-chrome-stable', // Ruta necesaria para Docker
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
-        ]
-    }
-});
+async function startBot() {
+    const { state, saveCreds } = await useMultiFileAuthState("auth_info_baileys");
+    const { version } = await fetchLatestBaileysVersion();
 
-// 3. GENERACIÓN DEL CÓDIGO DE VINCULACIÓN
-client.on('qr', async (qr) => {
-    // REEMPLAZA las X por tu número real (Ej: '593987654321')
-    // Sin el símbolo +, sin espacios y con código de país.
-    const miNumero = '593969720614'; 
+    const sock = makeWASocket({
+        version,
+        logger: pino({ level: "silent" }),
+        printQRInTerminal: true,
+        auth: state,
+        browser: ["Nexstrean Bot", "MacOS", "1.0.0"],
+    });
 
-    try {
-        const pairingCode = await client.requestPairingCode(miNumero);
-        console.log('-----------------------------------------');
-        console.log('TU CÓDIGO DE VINCULACIÓN ES: ' + pairingCode);
-        console.log('-----------------------------------------');
-    } catch (err) {
-        console.log('Error al solicitar el código:', err);
-    }
-});
+    sock.ev.on("creds.update", saveCreds);
 
-client.on('ready', () => {
-    console.log('¡Bot de Nexstream conectado y listo!');
-});
+    sock.ev.on("connection.update", (update) => {
+        const { connection, lastDisconnect, qr } = update;
+        if (qr) console.log("ESCANEA EL QR EN LOS LOGS O ESPERA EL CÓDIGO");
+        if (connection === "close") startBot(); // Reinicio automático si se cae
+        if (connection === "open") console.log("¡BOT CONECTADO Y ESTABLE!");
+    });
 
-// 4. LÓGICA DE RESPUESTA AUTOMÁTICA
-client.on('message', async msg => {
-    // CAMBIO AQUÍ: Pusimos @nexstrean.com (con n)
-    if (msg.body.includes('@nexstrean.com')) {
-        const correo = msg.body.trim();
-        msg.reply('🔍 Buscando tu código en el servidor de Nexstrean... espera un momento.');
-        
-        try {
-            // CAMBIO AQUÍ: La URL ahora apunta a bot.nexstrean.com (con n)
-            const response = await axios.get(`https://bot.nexstrean.com/lector.php?correo=${correo}`);
-            
-            if (response.data.status === 'success') {
-                msg.reply(`✅ *INFORMACIÓN ENCONTRADA*\n\n${response.data.mensaje_completo}`);
-            } else {
-                msg.reply('❌ No encontré mensajes recientes para esta cuenta en Nexstrean.');
+    sock.ev.on("messages.upsert", async (m) => {
+        const msg = m.messages[0];
+        if (!msg.message || msg.key.fromMe) return;
+
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+        const from = msg.key.remoteJid;
+
+        if (text.includes("@nexstrean.com")) {
+            const correo = text.trim();
+            await sock.sendMessage(from, { text: "🔍 Buscando en el servidor de Nexstrean..." });
+
+            try {
+                const response = await axios.get(`https://bot.nexstrean.com/lector.php?correo=${correo}`);
+                if (response.data.status === "success") {
+                    await sock.sendMessage(from, { text: `✅ *DATOS ENCONTRADOS*\n\n${response.data.mensaje_completo}` });
+                } else {
+                    await sock.sendMessage(from, { text: "❌ No hay datos recientes." });
+                }
+            } catch (e) {
+                await sock.sendMessage(from, { text: "⚠️ Error de conexión." });
             }
-        } catch (error) {
-            msg.reply('⚠️ Error de conexión con el servidor de Nexstrean.');
         }
-    }
-});
+    });
+}
 
-client.initialize();
+startBot();
