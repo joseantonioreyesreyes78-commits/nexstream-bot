@@ -52,20 +52,22 @@ client.on('ready', () => {
 
 // 4. LÓGICA DE RESPUESTA AUTOMÁTICA
 client.on('message', async msg => {
-    if (msg.body.includes('@nexstream.com')) {
+    // CAMBIO AQUÍ: Pusimos @nexstrean.com (con n)
+    if (msg.body.includes('@nexstrean.com')) {
         const correo = msg.body.trim();
-        msg.reply('🔍 Buscando tu código en el servidor... espera un momento.');
+        msg.reply('🔍 Buscando tu código en el servidor de Nexstrean... espera un momento.');
         
         try {
-            const response = await axios.get(`https://bot.nexstream.com/lector.php?correo=${correo}`);
+            // CAMBIO AQUÍ: La URL ahora apunta a bot.nexstrean.com (con n)
+            const response = await axios.get(`https://bot.nexstrean.com/lector.php?correo=${correo}`);
             
             if (response.data.status === 'success') {
                 msg.reply(`✅ *INFORMACIÓN ENCONTRADA*\n\n${response.data.mensaje_completo}`);
             } else {
-                msg.reply('❌ No encontré mensajes recientes para esta cuenta.');
+                msg.reply('❌ No encontré mensajes recientes para esta cuenta en Nexstrean.');
             }
         } catch (error) {
-            msg.reply('⚠️ Error de conexión con el servidor de Nexstream.');
+            msg.reply('⚠️ Error de conexión con el servidor de Nexstrean.');
         }
     }
 });
